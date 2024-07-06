@@ -1,24 +1,25 @@
 const utils = require('../../utils/utils')
 const { getJson,getText } = require('../../utils/superagent')
 
-const WARFRAME_HOST = "https://api.warframe.market/v1/"
+const WARFRAME_HOST_V1 = "https://api.warframe.market/v1/"
+const WARFRAME_HOST_V2 = "https://api.warframe.market/v2/"
 const AUCTIONS_HOST = "https://warframe.market/auctions"
 const AUCTIONS_HOST_ZH = "https://warframe.market/zh-hans/auctions"
 const language_zh = 'zh-hans'
 const language_en = 'en'
 
 const index = {
-    items:async () => {
-        const url = `${WARFRAME_HOST}items`
-        return (await getJson(url)).payload.items
+    items:async (header = {language:language_zh}) => {
+        const url = `${WARFRAME_HOST_V1}items`
+        return (await getJson(url,header)).payload.items
     },
     rivenItems:async () => {
-        const url = `${WARFRAME_HOST}riven/items`
+        const url = `${WARFRAME_HOST_V1}riven/items`
         return (await getJson(url)).payload.items
     },
-    item:async (type) => {
-        const url = `${WARFRAME_HOST}items/${type}`
-        return (await getJson(url)).payload.item
+    item:async (type, header = {language:language_zh}) => {
+        const url = `${WARFRAME_HOST_V1}items/${type}`
+        return (await getJson(url,header)).payload.item
     },
     auctions:async () => {
         let text_zh = await getText(AUCTIONS_HOST_ZH,{language:language_zh})
@@ -28,7 +29,10 @@ const index = {
         let merge = (v1,v2)=>{ return {...v1,zh:v1.item_name,en:v2.item_name,code:v1.url_name}}
         let getKey = (v)=> v['url_name']
         //数据结构 :{ items,riven:{items,attributes},lich:{ephemeras,weapons,quirks},sister:{ephemeras,weapons,quirks}}
-        let items = utils.mergeArray(state_zh.items,state_en.items,getKey,merge)
+        let items_zh = await index.items()
+        let items_en = await index.items({language:language_en})
+
+        let items = utils.mergeArray(items_zh,items_en,getKey,merge)
 
         let riven_attributes = utils.mergeArray(state_zh.riven.attributes,state_en.riven.attributes,getKey,(v1,v2)=>{ return {...v1,zh:v1.effect,en:v2.effect,code:v1.url_name}})
         let riven_items = utils.mergeArray(state_zh.riven.items,state_en.riven.items,getKey,merge)
@@ -62,11 +66,11 @@ const index = {
     },
     auctionsSearch:async (type='riven', weapon_url_name)=>{
         // type : riven,lich,sister
-        let url = `${WARFRAME_HOST}auctions/search?type=${type}&weapon_url_name=${weapon_url_name}&polarity=any&buyout_policy=direct&sort_by=price_asc`
+        let url = `${WARFRAME_HOST_V1}auctions/search?type=${type}&weapon_url_name=${weapon_url_name}&polarity=any&buyout_policy=direct&sort_by=price_asc`
         return (await getJson(url)).payload.auctions.filter(v => v.owner.status !== 'offline')
     },
     orders:async (name = 'primed_chamber') =>{
-        const url = `${WARFRAME_HOST}items/${name}/orders`;
+        const url = `${WARFRAME_HOST_V1}items/${name}/orders`;
         let orderList = (await getJson(url)).payload
         let onlineList = orderList.orders
             .filter( (item) => item.order_type === 'sell'&&item.user.status !== 'offline')
@@ -77,7 +81,7 @@ const index = {
         return onlineList.concat(offlineList)
     },
     statistics:async (name = 'primed_chamber')=> {
-        const url = `${WARFRAME_HOST}items/${name}/statistics`;
+        const url = `${WARFRAME_HOST_V1}items/${name}/statistics`;
         return (await getJson(url)).payload.statistics_live['90days']
     }
 }
